@@ -78,9 +78,9 @@ public class ExRECandidate{
 	public static void main(String[] args) {
 		if(args.length==0){
 			args = new String[2];
-			String path = "../example/";
-			args[0]=path+"rawSent.txt";
-			args[1]=path+"triple.txt";
+			String path = "example/";
+			args[0]=path+"devRaw.txt";
+			args[1]=path+"devRaw_triple.txt";
 		}
 		if(args.length<2){
 			System.out.println("Input: rawsentenceFile outFile");
@@ -105,10 +105,9 @@ public class ExRECandidate{
 			while(line!=null){
 				String sent = line;
 				Annotation document = new Annotation(sent);
-
 				// run all Annotators on this text
 				pipeline.annotate(document);
-				relationExtractor.extractRE(document,null, output);
+				relationExtractor.extractRE(document,sent, output);
 				line = input.readLine();
 			}
 		} catch (IOException e) {
@@ -121,65 +120,67 @@ public class ExRECandidate{
 	/**
 	 * Open IE: Extract relations from one sentence.
 	 * @param document the pipeline annotated document
-	 * @param parsedS: the parsed sentence Tree
+	 * @param rawSent: the raw sentence.
 	 * @throws IOException 
 	 */
-	public void extractRE(Annotation document, Tree parsedS, PrintStream output) throws IOException{
-		List<CoreMap> sentences = document.get(SentencesAnnotation.class);
-		int sentStart = 0;
-		for(CoreMap sentence: sentences) {
-			 Tree tree = parsedS;
-			 if(tree==null)
-				 tree=sentence.get(TreeAnnotation.class);
-			 output.println("<sent>");
-			 output.println(tree.toString());
-			 output.println("<pair>");
-			ArrayList tokenList = new ArrayList();
-			ArrayList posList = new ArrayList();
-			ArrayList lemmaList = new ArrayList();
-			ExRECandidate.getToken(sentence, tokenList, posList, lemmaList);
-			ArrayList mentionList = new ArrayList();
-			ArrayList tokenList2 = new ArrayList();
-			ArrayList posList2 = new ArrayList();
-			NPExStanford.extractOneSent(0, mentionList, tokenList2, posList2, sentence);
-			tokenList2.clear();
-			posList2.clear();
-			ArrayList mentionOffsetList = this.getMentionOffsets(mentionList);
-			mentionList = this.filterMention(mentionList);
-			
-			for(int i=0;i<mentionList.size();i++){
-				Mention mention = (Mention)mentionList.get(i);
-				String type1 = mention.getEntity().getType();
-				int start = mention.getStartToken();
-				int end = mention.getEndToken();
-				//System.out.println(type1+"\t"+start+"\t"+end);
-				for(int j=i+1;j<mentionList.size();j++){
-					Mention mention2 = (Mention)mentionList.get(j);
-					String type2 = mention2.getEntity().getType();
-					int start2 = mention2.getStartToken();
-					int end2 = mention2.getEndToken();
-					//System.out.println("\t"+type2+"\t"+start2+"\t"+end2+"\t");
-					if(start2-end<=this.maxEntryTokDist){//in a certain distance
-						String pairS = mention.getEntity().getName()+":"+start+":"+end+";"+
-								mention2.getEntity().getName()+":"+start2+":"+end2;
-						
-						//now for every pair, I need to extract relations.
-						ArrayList relations = this.extractREPair(start, end, start2, end2, tokenList, posList, lemmaList,mentionOffsetList);
-						if(relations.size()==0){
-							//output.println("\tno relation.");
-						}else{
-							//output.println("possible relations:");
-							for(int in=0;in<relations.size();in++){
-								Relation rtemp = (Relation)relations.get(in);
-								output.println(pairS+"\t"+rtemp.rWords+"\t"+getOffsetS(rtemp.rOffsets));
-							}
-						}
-					}
-				}
-			}
-			output.println();
-			sentStart = tokenList.size();
-		}//for every sentence
+	public void extractRE(Annotation document, String rawSent, PrintStream output) throws IOException{
+		List<CoreLabel> rawWords2 = 
+				tokenizerFactory.getTokenizer(new StringReader(rawSent)).tokenize();
+		Tree tree = this.lp.apply(rawWords2);
+		 output.println("<sent>");
+		 output.println(tree.toString());
+		 output.println("<pair>");
+		 
+		 List<CoreMap> sentences = document.get(SentencesAnnotation.class);
+		 ArrayList tokenList = new ArrayList();
+		 ArrayList posList = new ArrayList();
+		 ArrayList lemmaList = new ArrayList();
+		 for(CoreMap sentence: sentences) {
+			 ExRECandidate.getToken(sentence, tokenList, posList, lemmaList);
+		 }
+		 ArrayList mentionList = new ArrayList();
+		 ArrayList tokenList2 = new ArrayList();
+		 mentionList = NPExStanford.extract(document, tokenList2);
+		 tokenList2.clear();
+		 ArrayList mentionOffsetList = this.getMentionOffsets(mentionList);
+		 mentionList = this.filterMention(mentionList);
+
+		 for(int i=0;i<mentionList.size();i++){
+			 Mention mention = (Mention)mentionList.get(i);
+			 String type1 = mention.getEntity().getType();
+			 String name1 = mention.getEntity().getName();
+			 int start = mention.getStartToken();
+			 int end = mention.getEndToken();
+			 //System.out.println(type1+"\t"+start+"\t"+end);
+			 for(int j=i+1;j<mentionList.size();j++){
+				 Mention mention2 = (Mention)mentionList.get(j);
+				 String name2 = mention2.getEntity().getName();
+				 if(name1.equals(name2)){
+					 continue;
+				 }
+				 String type2 = mention2.getEntity().getType();
+				 int start2 = mention2.getStartToken();
+				 int end2 = mention2.getEndToken();
+				 //System.out.println("\t"+type2+"\t"+start2+"\t"+end2+"\t");
+				 if(start2-end<=this.maxEntryTokDist){//in a certain distance
+					 String pairS = mention.getEntity().getName()+":"+start+":"+end+";"+
+							 mention2.getEntity().getName()+":"+start2+":"+end2;
+
+					 //now for every pair, I need to extract relations.
+					 ArrayList relations = this.extractREPair(start, end, start2, end2, tokenList, posList, lemmaList,mentionOffsetList);
+					 if(relations.size()==0){
+						 //output.println("\tno relation.");
+					 }else{
+						 //output.println("possible relations:");
+						 for(int in=0;in<relations.size();in++){
+							 Relation rtemp = (Relation)relations.get(in);
+							 output.println(pairS+"\t"+rtemp.rWords+"\t"+getOffsetS(rtemp.rOffsets));
+						 }
+					 }
+				 }
+			 }//j
+		 }//i
+		 output.println();
 	}
 
 	/**
@@ -301,8 +302,8 @@ public class ExRECandidate{
 			for(int i=0;i<mentionList.size();i++){
 				Mention mention = (Mention)mentionList.get(i);
 				String type = mention.getType();
-				if(type.startsWith("PER")||type.startsWith("ORG")||type.startsWith("LOC")){
-				//System.out.println(type);
+				if(type.startsWith("PERSON")||type.startsWith("ORGANIZATION")||type.startsWith("LOCATION")){
+					//System.out.println(type);
 					list.add(mention);
 				}
 			}
