@@ -1,12 +1,3 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                                                                                                 %
-%                                       Code                                                      %
-% Open Information Extraction with Tree Kernels                                                   %
-% Ying Xu, Mi-Young Kim, Kevin Quinn, Randy Goebel and Denilson Barbosa      					  %
-% NAACL2013                                                                          		      %
-%                                                                                                 %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 To extract relation candidates: in application/ExRECandidate.java. 
 Input: files with raw sentences, one sentence per line.
 output: the NE pairs and candidate relations. (I only keep PER, ORG, LOC, if you want all NEs from Stanford NE extraction, you can change the code: comment out" mentionList = this.filterMention(mentionList);")
